@@ -5,5 +5,5 @@ add_executable(${target_name}
 )
 
 target_link_libraries(${target_name}
-    boost_system
+    ${Boost_LIBRARIES}
 )
