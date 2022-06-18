@@ -2,14 +2,34 @@
 
 #include <opencv2/opencv.hpp>
 
+#include "../argparse.hpp"
 #include "Client.h"
 
 int main(int argc, char* argv[])
 {
+    argparse::ArgumentParser program("client");
+
+    program.add_argument("hostname")
+        .help("hostname of the server");
+    program.add_argument("port")
+        .help("port of the server")
+        .scan<'u', unsigned short>();
+
+    try
+    {
+        program.parse_args(argc, argv);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+        std::cerr << program;
+        std::exit(1);
+    }
+
     try
     {
         boost::asio::io_service service;
-        Client client(service, "localhost", "1569");
+        Client client(service, program.get<std::string>("hostname"), program.get<unsigned short>("port"));
 
         cv::Mat frame, send;
         std::vector<unsigned char> encoded;

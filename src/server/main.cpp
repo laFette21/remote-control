@@ -2,14 +2,32 @@
 
 #include <opencv2/opencv.hpp>
 
+#include "../argparse.hpp"
 #include "Server.h"
 
 int main(int argc, char *argv[])
 {
+    argparse::ArgumentParser program("server");
+
+    program.add_argument("port")
+        .help("port of the server")
+        .scan<'u', unsigned short>();
+
+    try
+    {
+        program.parse_args(argc, argv);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+        std::cerr << program;
+        std::exit(1);
+    }
+
     try
     {
         boost::asio::io_service service;  
-        Server server(service);
+        Server server(service, program.get<unsigned short>("port"));
 
         cv::namedWindow("recv", cv::WINDOW_AUTOSIZE);
 

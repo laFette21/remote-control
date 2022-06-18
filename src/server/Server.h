@@ -11,8 +11,8 @@
 class Server
 {
 public:
-    Server(boost::asio::io_service& ioService)
-        : _socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 1569))
+    Server(boost::asio::io_service& ioService, unsigned short port)
+        : _socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port))
     {
         _buffer = std::vector<unsigned char>(65507);
     }

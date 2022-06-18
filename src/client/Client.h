@@ -15,11 +15,11 @@ public:
 	Client(
 		boost::asio::io_service& service, 
 		const std::string& host, 
-		const std::string& port
+		unsigned short port
 	) : _service(service), _socket(service, udp::endpoint(udp::v4(), 0))
     {
 		udp::resolver resolver(_service);
-		udp::resolver::query query(udp::v4(), host, port);
+		udp::resolver::query query(udp::v4(), host, std::to_string(port));
 		_endpoint = *resolver.resolve(query);
 	}
 
