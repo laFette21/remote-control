@@ -28,7 +28,7 @@ public:
 		_socket.close();
 	}
 
-    std::string receive();
+    std::vector<unsigned char> receive();
     void send(const std::vector<unsigned char>& data);
 
 private:
