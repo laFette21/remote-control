@@ -29,6 +29,7 @@ public:
 	}
 
     std::vector<unsigned char> receive();
+    void send(int* data);
     void send(const std::vector<unsigned char>& data);
 
 private:

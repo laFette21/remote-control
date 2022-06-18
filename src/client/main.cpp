@@ -1,5 +1,7 @@
 #include <iostream>
 
+#include <opencv2/opencv.hpp>
+
 #include "Client.h"
 
 int main(int argc, char* argv[])
@@ -9,22 +11,59 @@ int main(int argc, char* argv[])
         boost::asio::io_service service;
         Client client(service, "localhost", "1569");
 
-        auto start = std::chrono::high_resolution_clock::now();
+        cv::Mat frame, send;
+        std::vector<unsigned char> encoded;
+        cv::VideoCapture cap(0);
+        cv::namedWindow("send", cv::WINDOW_AUTOSIZE);
 
-        std::vector<unsigned char> data(9216, 'a');
+        std::vector<int> compressionParams;
+        compressionParams.push_back(cv::IMWRITE_JPEG_QUALITY);
+        compressionParams.push_back(80);
 
-        client.send(data);
+        auto lastTick = std::chrono::high_resolution_clock::now();
 
-        auto sent = std::chrono::high_resolution_clock::now();
+        while (true)
+        {
+            auto start = std::chrono::high_resolution_clock::now();
+            cap >> frame;
 
-        std::vector<unsigned char> response = client.receive();
+            if (frame.size().width == 0) continue;
 
-        auto received = std::chrono::high_resolution_clock::now();
+            cv::resize(frame, send, cv::Size(1280, 720), 0, 0, cv::INTER_LINEAR);
+            cv::imencode(".jpg", send, encoded, compressionParams);
+            cv::imshow("send", send);
 
-        std::cout << std::string(response.begin(), response.end()) << std::endl;
+            int totalPack = 1 + (encoded.size() - 1) / 4096;
+            int intBuf[1];
+            intBuf[0] = totalPack;
 
-        std::cout << "Time to send: " << std::chrono::duration_cast<std::chrono::milliseconds>(sent - start).count() << " ms" << std::endl;
-        std::cout << "Time to receive: " << std::chrono::duration_cast<std::chrono::milliseconds>(received - sent).count() << " ms" << std::endl;
+            auto processed = std::chrono::high_resolution_clock::now();
+
+            client.send(intBuf);
+
+            for (size_t i = 0; i < totalPack; ++i)
+            {
+                auto it = encoded.begin() + (i * 4096);
+
+                if ((i * 4096 + 4096) > encoded.size())
+                    client.send(std::vector<unsigned char>(it, encoded.end()));
+                else
+                    client.send(std::vector<unsigned char>(it, it + 4096));
+            }
+
+            auto sent = std::chrono::high_resolution_clock::now();
+            std::cout << "Time to process: " << std::chrono::duration_cast<std::chrono::milliseconds>(processed - start).count() << " ms" << std::endl;
+            std::cout << "Time to send: " << std::chrono::duration_cast<std::chrono::milliseconds>(sent - processed).count() << " ms" << std::endl;
+
+            cv::waitKey(1000 / 30);
+
+            auto nextTick = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(nextTick - lastTick).count() / 1000.0;
+
+            std::cout << "FPS: " << (1 / duration) << "\n";
+
+            lastTick = nextTick;
+        }
     }
     catch(std::exception& e)
     {

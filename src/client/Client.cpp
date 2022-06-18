@@ -1,5 +1,10 @@
 #include "Client.h"
 
+void Client::send(int* data)
+{
+	_socket.send_to(boost::asio::buffer(data, sizeof(int)), _endpoint);
+}
+
 void Client::send(const std::vector<unsigned char>& data)
 {
 	_socket.send_to(boost::asio::buffer(data, data.size()), _endpoint);

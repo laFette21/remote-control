@@ -9,4 +9,5 @@ add_executable(${target_name}
 
 target_link_libraries(${target_name}
     ${Boost_LIBRARIES}
+    ${OpenCV_LIBS}
 )

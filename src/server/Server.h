@@ -14,7 +14,7 @@ public:
     Server(boost::asio::io_service& ioService)
         : _socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 1569))
     {
-        receive();
+        _buffer = std::vector<unsigned char>(65507);
     }
 
     ~Server()
@@ -22,16 +22,18 @@ public:
         _socket.close();
     }
 
-private:
-    void receive();
-    void receiveCallback(const boost::system::error_code& error, size_t nSentBytes);
-    void sendCallback(
-        boost::shared_ptr<std::string> message,
-        const boost::system::error_code& error,
-        size_t nSentBytes
-    );
+    size_t receive();
+    std::vector<unsigned char> getBuffer() const { return _buffer; }
 
-    boost::array<unsigned char, 65507> _buffer;
+private:
+    // void receiveCallback(const boost::system::error_code& error, size_t nSentBytes);
+    // void sendCallback(
+    //     boost::shared_ptr<std::string> message,
+    //     const boost::system::error_code& error,
+    //     size_t nSentBytes
+    // );
+
+    std::vector<unsigned char> _buffer;
     boost::asio::ip::udp::endpoint _endpoint;
     boost::asio::ip::udp::socket _socket;
 };
