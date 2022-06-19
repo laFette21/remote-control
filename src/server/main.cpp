@@ -5,6 +5,8 @@
 #include "../argparse.hpp"
 #include "Server.h"
 
+static constexpr size_t PACKET_SIZE = 4096;
+
 int main(int argc, char *argv[])
 {
     argparse::ArgumentParser program("server");
@@ -32,7 +34,7 @@ int main(int argc, char *argv[])
         cv::namedWindow("recv", cv::WINDOW_AUTOSIZE);
 
         size_t receivedMsgSize;
-        auto lastTick = std::chrono::high_resolution_clock::now();
+        auto lastTick = std::clock();
 
         while (true)
         {
@@ -47,18 +49,18 @@ int main(int argc, char *argv[])
 
             auto start = std::chrono::high_resolution_clock::now();
 
-            std::vector<unsigned char> buffer(totalPack * 4096);
+            std::vector<unsigned char> buffer(totalPack * PACKET_SIZE);
 
             for (size_t i = 0; i < totalPack; ++i)
             {
                 receivedMsgSize = server.receive();
 
-                std::memcpy(&buffer[i * 4096], server.getBuffer().data(), receivedMsgSize);
+                std::memcpy(&buffer[i * PACKET_SIZE], server.getBuffer().data(), receivedMsgSize);
             }
 
             auto received = std::chrono::high_resolution_clock::now();
 
-            cv::Mat rawData = cv::Mat(1, 4096 * totalPack, CV_8UC1, buffer.data());
+            cv::Mat rawData = cv::Mat(1, PACKET_SIZE * totalPack, CV_8UC1, buffer.data());
             cv::Mat frame = cv::imdecode(rawData, cv::IMREAD_COLOR);
 
             if (frame.size().width == 0)
@@ -76,8 +78,8 @@ int main(int argc, char *argv[])
 
             cv::waitKey(1);
 
-            auto nextTick = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(nextTick - lastTick).count() / 1000.0;
+            auto nextTick = std::clock();
+            double duration = (nextTick - lastTick) / (double)CLOCKS_PER_SEC;
 
             std::cout << "FPS: " << (1 / duration) << "\n";
 
