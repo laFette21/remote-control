@@ -34,7 +34,6 @@ int main(int argc, char *argv[])
         cv::namedWindow("recv", cv::WINDOW_AUTOSIZE);
 
         size_t receivedMsgSize;
-        auto lastTick = std::clock();
 
         while (true)
         {
@@ -77,13 +76,6 @@ int main(int argc, char *argv[])
             std::cout << "Time to process: " << std::chrono::duration_cast<std::chrono::milliseconds>(showed - received).count() << " ms" << std::endl;
 
             cv::waitKey(1);
-
-            auto nextTick = std::clock();
-            double duration = (nextTick - lastTick) / (double)CLOCKS_PER_SEC;
-
-            std::cout << "FPS: " << (1 / duration) << "\n";
-
-            lastTick = nextTick;
         }
     }
     catch(std::exception& e)

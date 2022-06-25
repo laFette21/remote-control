@@ -43,7 +43,6 @@ int main(int argc, char* argv[])
             80
         };
 
-        auto lastTick = std::clock();
 
         while (true)
         {
@@ -78,14 +77,6 @@ int main(int argc, char* argv[])
             std::cout << "Time to process: " << std::chrono::duration_cast<std::chrono::milliseconds>(processed - start).count() << " ms" << std::endl;
             std::cout << "Time to send: " << std::chrono::duration_cast<std::chrono::milliseconds>(sent - processed).count() << " ms" << std::endl;
 
-            cv::waitKey(1000 / 30);
-
-            auto nextTick = std::clock();
-            double duration = (nextTick - lastTick) / (double)CLOCKS_PER_SEC;
-
-            std::cout << "FPS: " << (1 / duration) << "\n";
-
-            lastTick = nextTick;
         }
     }
     catch(std::exception& e)
