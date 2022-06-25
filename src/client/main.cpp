@@ -4,6 +4,7 @@
 
 #include "../argparse.hpp"
 #include "Client.h"
+#include "Stream.h"
 
 static constexpr size_t PACKET_SIZE = 4096;
 
@@ -32,10 +33,10 @@ int main(int argc, char* argv[])
     {
         boost::asio::io_service service;
         Client client(service, program.get<std::string>("hostname"), program.get<unsigned short>("port"));
+        Stream stream;
 
         cv::Mat frame, send;
         std::vector<unsigned char> encoded;
-        cv::VideoCapture cap(0);
         cv::namedWindow("send", cv::WINDOW_AUTOSIZE);
 
         const std::vector<int> compressionParams{
@@ -43,13 +44,15 @@ int main(int argc, char* argv[])
             80
         };
 
+        stream.start();
 
         while (true)
         {
             auto start = std::chrono::high_resolution_clock::now();
-            cap >> frame;
 
-            if (frame.size().width == 0) continue;
+            frame = *stream.read();
+
+            auto framed = std::chrono::high_resolution_clock::now();
 
             cv::resize(frame, send, cv::Size(1280, 720), 0, 0, cv::INTER_LINEAR);
             cv::imencode(".jpg", send, encoded, compressionParams);
@@ -74,9 +77,11 @@ int main(int argc, char* argv[])
             }
 
             auto sent = std::chrono::high_resolution_clock::now();
-            std::cout << "Time to process: " << std::chrono::duration_cast<std::chrono::milliseconds>(processed - start).count() << " ms" << std::endl;
+            std::cout << "Time to read frame: " << std::chrono::duration_cast<std::chrono::milliseconds>(framed - start).count() << " ms" << std::endl;
+            std::cout << "Time to process: " << std::chrono::duration_cast<std::chrono::milliseconds>(processed - framed).count() << " ms" << std::endl;
             std::cout << "Time to send: " << std::chrono::duration_cast<std::chrono::milliseconds>(sent - processed).count() << " ms" << std::endl;
 
+            cv::waitKey(1);
         }
     }
     catch(std::exception& e)
