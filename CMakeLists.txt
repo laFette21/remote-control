@@ -4,8 +4,9 @@ project(remote-control)
 set(CMAKE_CXX_STANDARD 20)
 
 add_compile_options(
-    -Wall
     -g
+    -Wall
+    -Werror
 )
 
 if(COVERAGE)
