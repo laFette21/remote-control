@@ -4,11 +4,8 @@
 
 #include "../argparse.hpp"
 #include "Client.h"
-#include "Stream.h"
 
-static constexpr size_t PACKET_SIZE = 4096;
-
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     argparse::ArgumentParser program("client");
 
@@ -31,55 +28,54 @@ int main(int argc, char* argv[])
 
     try
     {
-        boost::asio::io_service service;
+        boost::asio::io_service service;  
         Client client(service, program.get<std::string>("hostname"), program.get<unsigned short>("port"));
-        Stream stream;
 
-        cv::Mat frame, send;
-        std::vector<unsigned char> encoded;
-        cv::namedWindow("send", cv::WINDOW_AUTOSIZE);
+        cv::namedWindow("recv", cv::WINDOW_AUTOSIZE);
 
-        const std::vector<int> compressionParams{
-            cv::IMWRITE_JPEG_QUALITY,
-            80
-        };
+        size_t receivedMsgSize;
 
-        stream.start();
+        client.send(std::string("Hello"));
 
         while (true)
         {
+            do
+            {
+                receivedMsgSize = client.receive();
+            } while (receivedMsgSize > sizeof(int));
+
+            size_t totalPack = reinterpret_cast<int*>(client.getBuffer().data())[0];
+
+            std::cout << "Expecting " << totalPack << " packets." << std::endl;
+
             auto start = std::chrono::high_resolution_clock::now();
 
-            frame = *stream.read();
-
-            auto framed = std::chrono::high_resolution_clock::now();
-
-            cv::resize(frame, send, cv::Size(1280, 720), 0, 0, cv::INTER_LINEAR);
-            cv::imencode(".jpg", send, encoded, compressionParams);
-            cv::imshow("send", send);
-
-            int totalPack = 1 + (encoded.size() - 1) / PACKET_SIZE;
-            int intBuf[1];
-            intBuf[0] = totalPack;
-
-            auto processed = std::chrono::high_resolution_clock::now();
-
-            client.send(intBuf);
+            std::vector<unsigned char> buffer(totalPack * BUFFER_SIZE);
 
             for (size_t i = 0; i < totalPack; ++i)
             {
-                auto it = encoded.begin() + (i * PACKET_SIZE);
+                receivedMsgSize = client.receive();
 
-                if ((i * PACKET_SIZE + PACKET_SIZE) > encoded.size())
-                    client.send(std::vector<unsigned char>(it, encoded.end()));
-                else
-                    client.send(std::vector<unsigned char>(it, it + PACKET_SIZE));
+                std::memcpy(&buffer[i * BUFFER_SIZE], client.getBuffer().data(), receivedMsgSize);
             }
 
-            auto sent = std::chrono::high_resolution_clock::now();
-            std::cout << "Time to read frame: " << std::chrono::duration_cast<std::chrono::milliseconds>(framed - start).count() << " ms" << std::endl;
-            std::cout << "Time to process: " << std::chrono::duration_cast<std::chrono::milliseconds>(processed - framed).count() << " ms" << std::endl;
-            std::cout << "Time to send: " << std::chrono::duration_cast<std::chrono::milliseconds>(sent - processed).count() << " ms" << std::endl;
+            auto received = std::chrono::high_resolution_clock::now();
+
+            cv::Mat rawData = cv::Mat(1, BUFFER_SIZE * totalPack, CV_8UC1, buffer.data());
+            cv::Mat frame = cv::imdecode(rawData, cv::IMREAD_COLOR);
+
+            if (frame.size().width == 0)
+            {
+                std::cerr << "Error decoding frame!" << std::endl;
+                continue;
+            }
+
+            cv::imshow("recv", frame);
+
+            auto showed = std::chrono::high_resolution_clock::now();
+
+            std::cout << "Time to receive: " << std::chrono::duration_cast<std::chrono::milliseconds>(received - start).count() << " ms" << std::endl;
+            std::cout << "Time to process: " << std::chrono::duration_cast<std::chrono::milliseconds>(showed - received).count() << " ms" << std::endl;
 
             cv::waitKey(1);
         }

@@ -1,13 +1,15 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <chrono>
 #include <iostream>
-#include <vector>
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 
 using boost::asio::ip::udp;
+
+static constexpr size_t BUFFER_SIZE = 65507;
 
 class Client
 {
@@ -21,21 +23,24 @@ public:
 		udp::resolver resolver(_service);
 		udp::resolver::query query(udp::v4(), host, std::to_string(port));
 		_endpoint = *resolver.resolve(query);
+		_buffer = std::vector<unsigned char>(BUFFER_SIZE);
 	}
 
-	~Client()
+    ~Client()
 	{
-		_socket.close();
-	}
+        _socket.close();
+    }
 
-    std::vector<unsigned char> receive();
-    void send(int* data);
-    void send(const std::vector<unsigned char>& data);
+	std::vector<unsigned char> getBuffer() const { return _buffer; }
+    size_t receive();
+	void send(const std::string& data);
 
 private:
+    std::vector<unsigned char> _buffer;
+
 	boost::asio::io_service& _service;
-	udp::socket _socket;
-	udp::endpoint _endpoint;
+    udp::endpoint _endpoint;
+    udp::socket _socket;
 };
 
 #endif // CLIENT_H

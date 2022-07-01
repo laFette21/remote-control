@@ -1,32 +1,35 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include <chrono>
 #include <iostream>
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 
+using boost::asio::ip::udp;
+
+static constexpr size_t BUFFER_SIZE = 65507;
+
 class Server
 {
 public:
-    Server(boost::asio::io_service& ioService, unsigned short port)
-        : _socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port))
-    {
-        _buffer = std::vector<unsigned char>(65507);
-    }
+	Server(boost::asio::io_service& ioService, unsigned short port)
+        : _socket(ioService, udp::endpoint(udp::v4(), port))
+    {}
 
-    ~Server()
+	~Server()
 	{
-        _socket.close();
-    }
+		_socket.close();
+	}
 
-    size_t receive();
-    std::vector<unsigned char> getBuffer() const { return _buffer; }
+    std::vector<unsigned char> receive();
+    void send(size_t* data);
+    void send(const std::vector<unsigned char>& data);
 
 private:
-    std::vector<unsigned char> _buffer;
-    boost::asio::ip::udp::endpoint _endpoint;
-    boost::asio::ip::udp::socket _socket;
+    udp::endpoint _endpoint;
+	udp::socket _socket;
 };
 
 #endif // SERVER_H

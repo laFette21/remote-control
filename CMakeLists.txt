@@ -3,10 +3,11 @@ project(remote-control)
 
 set(CMAKE_CXX_STANDARD 20)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 add_compile_options(
     -g
     -Wall
-    -Werror
 )
 
 if(COVERAGE)
@@ -21,6 +22,7 @@ endif()
 
 find_package(Boost REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(Pylon REQUIRED)
 
 enable_testing()
 

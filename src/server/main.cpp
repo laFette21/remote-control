@@ -1,13 +1,13 @@
 #include <iostream>
 
 #include <opencv2/opencv.hpp>
+#include <pylon/PylonIncludes.h>
 
 #include "../argparse.hpp"
 #include "Server.h"
+// #include "Stream.h"
 
-static constexpr size_t PACKET_SIZE = 4096;
-
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     argparse::ArgumentParser program("server");
 
@@ -28,52 +28,74 @@ int main(int argc, char *argv[])
 
     try
     {
-        boost::asio::io_service service;  
+        boost::asio::io_service service;
         Server server(service, program.get<unsigned short>("port"));
+        // Stream stream;
 
-        cv::namedWindow("recv", cv::WINDOW_AUTOSIZE);
+        Pylon::PylonInitialize();
+        Pylon::CInstantCamera camera(Pylon::CTlFactory::GetInstance().CreateFirstDevice());
+        std::cout << "Using device " << camera.GetDeviceInfo().GetModelName() << std::endl;
+        camera.MaxNumBuffer = 5;
 
-        size_t receivedMsgSize;
+        Pylon::CImageFormatConverter formatConverter;
+		formatConverter.OutputPixelFormat = Pylon::PixelType_BGR8packed;
 
-        while (true)
+        Pylon::CGrabResultPtr ptrGrabResult;
+        Pylon::CPylonImage pylonImage;
+        cv::Mat frame, send;
+        std::vector<unsigned char> encoded;
+        cv::namedWindow("send", cv::WINDOW_AUTOSIZE);
+
+        const std::vector<int> compressionParams{
+            cv::IMWRITE_JPEG_QUALITY,
+            80
+        };
+
+        server.receive();
+        // stream.start();
+        camera.StartGrabbing(Pylon::GrabStrategy_LatestImageOnly);
+
+        while (camera.IsGrabbing())
         {
-            do
-            {
-                receivedMsgSize = server.receive();
-            } while (receivedMsgSize > sizeof(int));
-
-            int totalPack = reinterpret_cast<int*>(server.getBuffer().data())[0];
-
-            std::cout << "Expecting " << totalPack << " packets." << std::endl;
-
             auto start = std::chrono::high_resolution_clock::now();
 
-            std::vector<unsigned char> buffer(totalPack * PACKET_SIZE);
+            // frame = *stream.read();
+            camera.RetrieveResult(5000, ptrGrabResult, Pylon::TimeoutHandling_ThrowException);
 
-            for (size_t i = 0; i < totalPack; ++i)
+            if (ptrGrabResult->GrabSucceeded())
             {
-                receivedMsgSize = server.receive();
+                formatConverter.Convert(pylonImage, ptrGrabResult);
+                frame = cv::Mat(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3, (uint8_t *)pylonImage.GetBuffer());
 
-                std::memcpy(&buffer[i * PACKET_SIZE], server.getBuffer().data(), receivedMsgSize);
+                auto framed = std::chrono::high_resolution_clock::now();
+
+                cv::resize(frame, send, cv::Size(1280, 720), 0, 0, cv::INTER_LINEAR);
+                cv::imencode(".jpg", send, encoded, compressionParams);
+                cv::imshow("send", send);
+
+                size_t totalPack = 1 + (encoded.size() - 1) / BUFFER_SIZE;
+                size_t intBuf[1];
+                intBuf[0] = totalPack;
+
+                auto processed = std::chrono::high_resolution_clock::now();
+
+                server.send(intBuf);
+
+                for (size_t i = 0; i < totalPack; ++i)
+                {
+                    auto it = encoded.begin() + (i * BUFFER_SIZE);
+
+                    if ((i * BUFFER_SIZE + BUFFER_SIZE) > encoded.size())
+                        server.send(std::vector<unsigned char>(it, encoded.end()));
+                    else
+                        server.send(std::vector<unsigned char>(it, it + BUFFER_SIZE));
+                }
+
+                auto sent = std::chrono::high_resolution_clock::now();
+                std::cout << "Time to read frame: " << std::chrono::duration_cast<std::chrono::milliseconds>(framed - start).count() << " ms" << std::endl;
+                std::cout << "Time to process: " << std::chrono::duration_cast<std::chrono::milliseconds>(processed - framed).count() << " ms" << std::endl;
+                std::cout << "Time to send: " << std::chrono::duration_cast<std::chrono::milliseconds>(sent - processed).count() << " ms" << std::endl;
             }
-
-            auto received = std::chrono::high_resolution_clock::now();
-
-            cv::Mat rawData = cv::Mat(1, PACKET_SIZE * totalPack, CV_8UC1, buffer.data());
-            cv::Mat frame = cv::imdecode(rawData, cv::IMREAD_COLOR);
-
-            if (frame.size().width == 0)
-            {
-                std::cerr << "Error decoding frame!" << std::endl;
-                continue;
-            }
-
-            cv::imshow("recv", frame);
-
-            auto showed = std::chrono::high_resolution_clock::now();
-
-            std::cout << "Time to receive: " << std::chrono::duration_cast<std::chrono::milliseconds>(received - start).count() << " ms" << std::endl;
-            std::cout << "Time to process: " << std::chrono::duration_cast<std::chrono::milliseconds>(showed - received).count() << " ms" << std::endl;
 
             cv::waitKey(1);
         }
@@ -82,6 +104,8 @@ int main(int argc, char *argv[])
     {
         std::cerr << e.what() << std::endl;
     }
+
+    Pylon::PylonTerminate();
 
     return 0;
 }
