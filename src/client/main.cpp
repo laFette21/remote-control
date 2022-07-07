@@ -33,7 +33,9 @@ int main(int argc, char *argv[])
 
         cv::namedWindow("recv", cv::WINDOW_AUTOSIZE);
 
-        size_t receivedMsgSize;
+        size_t sizeMsgSize;
+        std::pair<size_t, std::vector<uint8_t>> receivedMsg;
+        cv::Mat frame;
 
         client.send(std::string("Hello"));
 
@@ -41,28 +43,31 @@ int main(int argc, char *argv[])
         {
             do
             {
-                receivedMsgSize = client.receive();
-            } while (receivedMsgSize > sizeof(int));
+                sizeMsgSize = client.receive();
+            } while (sizeMsgSize > 3 * sizeof(int));
 
-            size_t totalPack = reinterpret_cast<int*>(client.getBuffer().data())[0];
+            std::vector<int> size = client.getSizeBuffer();
+            // auto size = sizeMsg.second;
 
-            std::cout << "Expecting " << totalPack << " packets." << std::endl;
+            std::cout << "Expecting " << size[2] << " packets." << std::endl;
 
             auto start = std::chrono::high_resolution_clock::now();
 
-            std::vector<unsigned char> buffer(totalPack * BUFFER_SIZE);
+            std::vector<uint8_t> buffer(size[2] * BUFFER_SIZE);
 
-            for (size_t i = 0; i < totalPack; ++i)
+            for (size_t i = 0; i < size[2]; ++i)
             {
-                receivedMsgSize = client.receive();
+                receivedMsg = client.receive<uint8_t>();
 
-                std::memcpy(&buffer[i * BUFFER_SIZE], client.getBuffer().data(), receivedMsgSize);
+                std::memcpy(&buffer[i * BUFFER_SIZE], receivedMsg.second.data(), receivedMsg.first);
             }
 
             auto received = std::chrono::high_resolution_clock::now();
 
-            cv::Mat rawData = cv::Mat(1, BUFFER_SIZE * totalPack, CV_8UC1, buffer.data());
-            cv::Mat frame = cv::imdecode(rawData, cv::IMREAD_COLOR);
+            // cv::Mat rawData = cv::Mat(1, BUFFER_SIZE * size[2], CV_8UC1, buffer.data());
+            // cv::Mat frame = cv::imdecode(rawData, cv::IMREAD_COLOR);
+
+            frame = cv::Mat(size[0], size[1], CV_8UC3, buffer.data());
 
             if (frame.size().width == 0)
             {

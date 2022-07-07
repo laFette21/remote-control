@@ -23,13 +23,30 @@ public:
 		_socket.close();
 	}
 
-    std::vector<unsigned char> receive();
-    void send(size_t* data);
-    void send(const std::vector<unsigned char>& data);
+	template<typename T> std::vector<T> receive();
+	template<typename T> void send(const std::vector<T>& data);
 
 private:
     udp::endpoint _endpoint;
 	udp::socket _socket;
 };
+
+template<typename T>
+std::vector<T> Server::receive()
+{
+	std::vector<T> buffer(BUFFER_SIZE);
+
+	_socket.receive_from(
+		boost::asio::buffer(buffer),
+		_endpoint);
+
+	return buffer;
+}
+
+template<typename T>
+void Server::send(const std::vector<T>& data)
+{
+	_socket.send_to(boost::asio::buffer(data, data.size() * sizeof(T)), _endpoint);
+}
 
 #endif // SERVER_H

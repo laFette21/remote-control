@@ -4,8 +4,6 @@ include_directories(${Boost_INCLUDE_DIR})
 
 add_executable(${target_name}
     main.cpp
-    Server.cpp
-    Stream.cpp
 )
 
 target_include_directories(${target_name} PUBLIC

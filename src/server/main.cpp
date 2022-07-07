@@ -36,22 +36,24 @@ int main(int argc, char* argv[])
         Pylon::CInstantCamera camera(Pylon::CTlFactory::GetInstance().CreateFirstDevice());
         std::cout << "Using device " << camera.GetDeviceInfo().GetModelName() << std::endl;
         camera.MaxNumBuffer = 5;
+        // camera.ImageCompressionMode.SetValue(Pylon::ImageCompressionMode_BaslerCompressionBeyond);
+        // camera.ImageCompressionRateOption.SetValue(Pylon::ImageCompressionRateOption_Lossless);
 
         Pylon::CImageFormatConverter formatConverter;
 		formatConverter.OutputPixelFormat = Pylon::PixelType_BGR8packed;
 
         Pylon::CGrabResultPtr ptrGrabResult;
         Pylon::CPylonImage pylonImage;
-        cv::Mat frame, send;
-        std::vector<unsigned char> encoded;
-        cv::namedWindow("send", cv::WINDOW_AUTOSIZE);
+        // cv::Mat frame, send;
+        
+        // cv::namedWindow("send", cv::WINDOW_AUTOSIZE);
 
-        const std::vector<int> compressionParams{
-            cv::IMWRITE_JPEG_QUALITY,
-            80
-        };
+        // const std::vector<int> compressionParams{
+        //     cv::IMWRITE_JPEG_QUALITY,
+        //     80
+        // };
 
-        server.receive();
+        server.receive<char>();
         // stream.start();
         camera.StartGrabbing(Pylon::GrabStrategy_LatestImageOnly);
 
@@ -65,30 +67,39 @@ int main(int argc, char* argv[])
             if (ptrGrabResult->GrabSucceeded())
             {
                 formatConverter.Convert(pylonImage, ptrGrabResult);
-                frame = cv::Mat(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3, (uint8_t *)pylonImage.GetBuffer());
+                // frame = cv::Mat(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3, (uint8_t *)pylonImage.GetBuffer());
 
                 auto framed = std::chrono::high_resolution_clock::now();
 
-                cv::resize(frame, send, cv::Size(1280, 720), 0, 0, cv::INTER_LINEAR);
-                cv::imencode(".jpg", send, encoded, compressionParams);
-                cv::imshow("send", send);
+                // cv::resize(frame, send, cv::Size(1280, 720), 0, 0, cv::INTER_LINEAR);
+                // cv::imencode(".jpg", send, encoded, compressionParams);
+                // cv::imshow("send", send);
 
-                size_t totalPack = 1 + (encoded.size() - 1) / BUFFER_SIZE;
-                size_t intBuf[1];
-                intBuf[0] = totalPack;
+                // Pylon::DisplayImage(1, ptrGrabResult);
+                std::vector<int> size{
+                    ptrGrabResult->GetHeight(),
+                    ptrGrabResult->GetWidth(),
+                };
+
+                uint8_t* arr = (uint8_t *)pylonImage.GetBuffer();
+                std::vector<uint8_t> data(&arr[0], &arr[size[0] * size[1] * 3]);
+
+                // std::memcpy(data.data(), arr, size[0] * size[1] * 3);
+
+                size.push_back(1 + (data.size() - 1) / BUFFER_SIZE);
 
                 auto processed = std::chrono::high_resolution_clock::now();
 
-                server.send(intBuf);
+                server.send(size);
 
-                for (size_t i = 0; i < totalPack; ++i)
+                for (size_t i = 0; i < size[2]; ++i)
                 {
-                    auto it = encoded.begin() + (i * BUFFER_SIZE);
+                    auto it = data.begin() + (i * BUFFER_SIZE);
 
-                    if ((i * BUFFER_SIZE + BUFFER_SIZE) > encoded.size())
-                        server.send(std::vector<unsigned char>(it, encoded.end()));
+                    if ((i * BUFFER_SIZE + BUFFER_SIZE) > data.size())
+                        server.send(std::vector<uint8_t>(it, data.end()));
                     else
-                        server.send(std::vector<unsigned char>(it, it + BUFFER_SIZE));
+                        server.send(std::vector<uint8_t>(it, it + BUFFER_SIZE));
                 }
 
                 auto sent = std::chrono::high_resolution_clock::now();
