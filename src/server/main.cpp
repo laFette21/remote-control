@@ -2,6 +2,7 @@
 
 #include <opencv2/opencv.hpp>
 #include <pylon/PylonIncludes.h>
+#include <pylon/BaslerUniversalInstantCamera.h>
 
 #include "../argparse.hpp"
 #include "Server.h"
@@ -33,11 +34,15 @@ int main(int argc, char* argv[])
         // Stream stream;
 
         Pylon::PylonInitialize();
-        Pylon::CInstantCamera camera(Pylon::CTlFactory::GetInstance().CreateFirstDevice());
+        Pylon::CBaslerUniversalInstantCamera camera(Pylon::CTlFactory::GetInstance().CreateFirstDevice());
         std::cout << "Using device " << camera.GetDeviceInfo().GetModelName() << std::endl;
-        camera.MaxNumBuffer = 5;
-        // camera.ImageCompressionMode.SetValue(Pylon::ImageCompressionMode_BaslerCompressionBeyond);
-        // camera.ImageCompressionRateOption.SetValue(Pylon::ImageCompressionRateOption_Lossless);
+        camera.MaxNumBuffer = 10;
+        // camera.Width.SetValue(500);
+        // camera.Height.SetValue(500);
+
+        camera.ImageCompressionMode.SetValue(Basler_UniversalCameraParams::ImageCompressionMode_BaslerCompressionBeyond);
+        camera.ImageCompressionRateOption.SetValue(Basler_UniversalCameraParams::ImageCompressionRateOption_Lossless);
+        // camera.BslImageCompressionRatio.SetValue(70);
 
         Pylon::CImageFormatConverter formatConverter;
 		formatConverter.OutputPixelFormat = Pylon::PixelType_BGR8packed;
